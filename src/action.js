@@ -113,9 +113,9 @@ function validateTitle(pullRequest) {
 }
 
 function validateBody(pullRequest) {
-  core.info("Validating body..");
+  core.info("Validating body...");
   const { body } = pullRequest;
-  if (!body) {
+  if (!body && !JSON.parse(core.getInput("generate_body") || false) === true) {
     throw new ValidationError("Missing description.");
   }
 }
@@ -255,11 +255,32 @@ async function setStatus(pullRequest, state, description) {
   });
 }
 
+async function generateBody(pullRequest) {
+  const tag = getTagName(pullRequest);
+
+  const { data } = await client.request(
+    "POST /repos/{owner}/{repo}/releases/generate-notes",
+    {
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      tag_name: tag,
+      target_commitish: pullRequest.merge_commit_sha,
+      ...github.context.repo,
+    }
+  );
+
+  core.info(JSON.stringify(data));
+  pullRequest.body = JSON.parse(data)["body"];
+}
+
 async function release(pullRequest) {
   core.info(`Releasing ${pullRequest.merge_commit_sha}..`);
   const tag = getTagName(pullRequest);
   const isPrerelease =
     JSON.parse(core.getInput("prerelease") || false) === true;
+
+  if (JSON.parse(core.getInput("generate_body") || false) === true)
+    generateBody(pullRequest);
 
   core.info(`Is prerelease? ${isPrerelease}`);
   await client.rest.repos.createRelease({
@@ -295,4 +316,5 @@ module.exports = {
   release,
   setStatus,
   ValidationError,
+  generateBody,
 };

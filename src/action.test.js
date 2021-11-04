@@ -183,6 +183,20 @@ test("release", async () => {
     body: "somebody",
     merge_commit_sha: "deadbeef",
   });
+
+  // Test integration of body generation
+  process.env["INPUT_GENERATE_BODY"] = "true";
+  nock("https://api.github.com")
+    .post(`/repos/${owner}/${repo}/releases/generate-notes`)
+    .reply(200, '{"name": "flufftitle","body": "mybody"}');
+  nock("https://api.github.com")
+    .post(`/repos/${owner}/${repo}/releases`)
+    .reply(200);
+  await release({
+    title: "hejhej",
+    body: "",
+    merge_commit_sha: "deadbeef",
+  });
 });
 
 test("validateTitle", () => {
@@ -242,6 +256,7 @@ test("validateTitle", () => {
 
 test("validateBody", () => {
   const { validateBody } = require("./action");
+  process.env["INPUT_GENERATE_BODY"] = "";
 
   // Valid body
   validateBody({ body: "A body" });
@@ -250,6 +265,14 @@ test("validateBody", () => {
   expect(() => {
     validateBody({ title: null });
   }).toThrow(/Missing description/);
+
+  process.env["INPUT_GENERATE_BODY"] = "true";
+
+  // Invalid body, but generate body is on
+  validateBody({ title: null });
+
+  // Reset generate body tag, to not break other tests
+  process.env["INPUT_GENERATE_BODY"] = "";
 });
 
 test("validateBranches", () => {
@@ -319,4 +342,22 @@ test("setStatus", async () => {
   await setStatus({ head: { sha: headSha } }, "success", "LGTM");
   process.env["INPUT_CREATE_STATUS"] = "false";
   await setStatus({ head: { sha: headSha } }, "success", "LGTM");
+});
+
+test("generateBody", async () => {
+  const { generateBody } = require("./action");
+
+  process.env["INPUT_TAG_PREFIX"] = "release/";
+
+  pr = {
+    title: "hejhej",
+    body: "",
+    merge_commit_sha: "deadbeef",
+  };
+
+  nock("https://api.github.com")
+    .post(`/repos/${owner}/${repo}/releases/generate-notes`)
+    .reply(200, '{"name": "flufftitle","body": "mybody"}');
+  await generateBody(pr);
+  expect(pr.body).toBe("mybody");
 });
