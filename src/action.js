@@ -289,6 +289,8 @@ async function generatePatchNotes(pullRequest) {
       repo: github.context.repo.repo,
     });
 
+    core.debug(latest_release.tag_name);
+
     const response = await client.request(
       "POST /repos/{owner}/{repo}/releases/generate-notes",
       {
