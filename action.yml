@@ -38,6 +38,10 @@ inputs:
     description: 'Creates a prerelease instead of release'
     required: false
     default: false
+  draft:
+    description: 'Creates a draft relase'
+    required: false
+    default: false
   validate:
     description: 'Validate title and description of pull request'
     required: false
@@ -52,8 +56,9 @@ inputs:
   valid_release_message:
     description: 'Message to comment with on valid release PRs.'
     default: 'Valid release 🍌'
-  generate_patch_notes:
-    description: 'Use githubs native release note generator.'
+  generate_release_notes:
+    description: 'Generate release notes automatically'
+    required: false
     default: false
 outputs:
   release:

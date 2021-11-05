@@ -179,7 +179,9 @@ test("review", async () => {
     .post(`/repos/${owner}/${repo}/releases/generate-notes`)
     .reply(200, '{"name": "flufftitle","body": "mybody"}')
     .post(`/repos/${owner}/${repo}/issues/${prNumber}/comments`)
-    .reply(200, '{"name": "flufftitle","body": "mybody"}');
+    .reply(200, '{"name": "flufftitle","body": "mybody"}')
+    .get(`/repos/${owner}/${repo}/releases/latest`)
+    .reply(200, '{"tag_name": "last-tag"}');
   await review({ number: prNumber, head: { sha: headSha } }, "APPROVE", "LGTM");
 
   process.env["INPUT_GENERATE_PATCH_NOTES"] = "true";
@@ -191,7 +193,9 @@ test("review", async () => {
     .post(`/repos/${owner}/${repo}/releases/generate-notes`)
     .reply(200, '{"name": "flufftitle","body": "mybody"}')
     .post(`/repos/${owner}/${repo}/issues/${prNumber}/comments`)
-    .reply(404);
+    .reply(404)
+    .get(`/repos/${owner}/${repo}/releases/latest`)
+    .reply(200, '{"tag_name": "last-tag"}');
   await expect(
     review({ number: prNumber, head: { sha: headSha } }, "APPROVE", "LGTM")
   ).rejects.toThrow(Error);
@@ -218,7 +222,9 @@ test("release", async () => {
     .post(`/repos/${owner}/${repo}/releases`)
     .reply(200)
     .post(`/repos/${owner}/${repo}/releases/generate-notes`)
-    .reply(200, '{"name": "flufftitle","body": "mybody"}');
+    .reply(200, '{"name": "flufftitle","body": "mybody"}')
+    .get(`/repos/${owner}/${repo}/releases/latest`)
+    .reply(200, '{"tag_name": "last-tag"}');
   await release({
     title: "hejhej",
     body: "",
@@ -377,19 +383,33 @@ test("generatePatchNotes", async () => {
   pr = {
     title: "hejhej",
     head: { ref: "dev" },
+    number: 1,
   };
 
   nock("https://api.github.com")
     .post(`/repos/${owner}/${repo}/releases/generate-notes`)
-    .reply(404);
-  await expect(generatePatchNotes(pr)).rejects.toThrow(
+    .reply(404)
+    .get(`/repos/${owner}/${repo}/releases/latest`)
+    .reply(200, { tag_name: "last-tag" });
+  await expect(generateReleaseNotes(pr)).rejects.toThrow(
     /Failed to generate a body/
   );
 
   nock("https://api.github.com")
     .post(`/repos/${owner}/${repo}/releases/generate-notes`)
-    .reply(200, '{"name": "flufftitle","body": "mybody"}');
-  await generatePatchNotes(pr);
-  //I can't get this to work, nock doesn't return the data in the same format as the real API
-  //expect(pr.body).toBe("mybody");
+    .reply(200, { name: "flufftitle", body: "mybody" })
+    .get(`/repos/${owner}/${repo}/releases/latest`)
+    .reply(200, { tag_name: "last-tag" })
+    .patch(`/repos/${owner}/${repo}/issues/${pr.number}`, { body: "mybody" })
+    .reply(200);
+  await generateReleaseNotes(pr);
+
+  nock("https://api.github.com")
+    .post(`/repos/${owner}/${repo}/releases/generate-notes`)
+    .reply(200, { name: "flufftitle", body: "mybody" })
+    .get(`/repos/${owner}/${repo}/releases/latest`)
+    .reply(404)
+    .patch(`/repos/${owner}/${repo}/issues/${pr.number}`, { body: "mybody" })
+    .reply(200);
+  await generateReleaseNotes(pr);
 });

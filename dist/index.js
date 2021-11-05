@@ -8295,6 +8295,16 @@ async function action() {
   if (validateActions.includes(action)) {
     // Run validation for accepted actions
     core.info(`Validating pull request for action ${action}.`);
+
+    // If the release notes should have changed, generate new ones
+    if (
+      JSON.parse(core.getInput("generate_release_notes") || false) === true && //Should we generate notes?
+      (action === "opened" || //Was the action "opened" or
+        (action === "edited" && //Was it "edited" and
+          github.context.payload.changes.body.from == pullRequest.body)) //The edit wasn't of the description
+    )
+      await generateReleaseNotes(pullRequest);
+
     await validate(pullRequest);
   } else if (action === "closed" && pullRequest.merged) {
     // Previously validated PR was merged so create release
@@ -8561,19 +8571,41 @@ async function setStatus(pullRequest, state, description) {
 async function generatePatchNotes(pullRequest) {
   const tag = getTagName(pullRequest);
 
+  var previous_tag_name;
   try {
-    const response = await client.request(
-      "POST /repos/{owner}/{repo}/releases/generate-notes",
-      {
-        owner: github.context.repo.owner,
-        repo: github.context.repo.repo,
-        tag_name: tag,
-        target_commitish: pullRequest.head.ref,
-      }
+    const latestRelease = await client.rest.repos.getLatestRelease({
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+    });
+    previous_tag_name = latestRelease.data.tag_name;
+    core.info(
+      "Generating release-notes relative to release " + previous_tag_name + ".."
     );
+  } catch (error) {
+    previous_tag_name = "";
+    core.info("Generating release-notes relative to start of repository..");
+  }
+
+  try {
+    const response = await client.rest.repos.generateReleaseNotes({
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      tag_name: tag,
+      target_commitish: pullRequest.head.ref,
+      previous_tag_name: previous_tag_name,
+    });
+
+    // Update the PR body to be the patch notes
+    await client.rest.issues.update({
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      issue_number: pullRequest.number,
+      body: response.data.body,
+    });
+
+    //pullRequest now holds stale data, updating it
     pullRequest.body = response.data.body;
   } catch (error) {
-    pullRequest.body += "\nFailed to generate a body (" + error + ")";
     throw Error("Failed to generate a body: " + error);
   }
 }
@@ -8583,17 +8615,14 @@ async function release(pullRequest) {
   const tag = getTagName(pullRequest);
   const isPrerelease =
     JSON.parse(core.getInput("prerelease") || false) === true;
-
-  const shouldGeneratePatchNotes =
-    JSON.parse(core.getInput("generate_patch_notes") || false) === true;
-  if (shouldGeneratePatchNotes) await generatePatchNotes(pullRequest);
+  const isDraft = JSON.parse(core.getInput("draft") || false) === true;
 
   core.info(`Is prerelease? ${isPrerelease}`);
-  core.info(`Is draft? ${shouldGeneratePatchNotes}`);
+  core.info(`Is draft? ${isDraft}`);
   await client.rest.repos.createRelease({
     name: pullRequest.title,
     tag_name: tag,
-    draft: shouldGeneratePatchNotes,
+    draft: isDraft,
     body: pullRequest.body || "",
     prerelease: isPrerelease,
     target_commitish: pullRequest.merge_commit_sha,
