@@ -8560,8 +8560,20 @@ async function setStatus(pullRequest, state, description) {
 
 async function generatePatchNotes(pullRequest) {
   const tag = getTagName(pullRequest);
+  core.info("generating patchnotes");
 
   try {
+    const latest_release = await client.rest.repos.getLatestRelease({
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+    });
+
+    core.info(
+      "Generating patch-notes relative to release " +
+        latest_release.data.tag_name +
+        ".."
+    );
+
     const response = await client.request(
       "POST /repos/{owner}/{repo}/releases/generate-notes",
       {
@@ -8569,8 +8581,10 @@ async function generatePatchNotes(pullRequest) {
         repo: github.context.repo.repo,
         tag_name: tag,
         target_commitish: pullRequest.head.ref,
+        previous_tag_name: latest_release.data.tag_name,
       }
     );
+
     pullRequest.body = response.data.body;
   } catch (error) {
     pullRequest.body += "\nFailed to generate a body (" + error + ")";
