@@ -88,6 +88,11 @@ The name of the status created when `create_status` is set to `true`. Defaults t
 Message to comment with on valid release PRs. Can be overridden to add custom
 cheerfulness or reminders. Defaults to `Valid release 🍌`.
 
+## `generate_patch_notes`
+
+If `true`, will use Github's patch note generator instead of the description of the pull-request for the body of the release.
+Generates draft releases instead, to allow for revision before publishing. Also posts the patch notes as a comment of the PR after validation.
+
 ## Outputs
 
 ### `release`
