@@ -8589,13 +8589,13 @@ async function release(pullRequest) {
   if (shouldGeneratePatchNotes) await generatePatchNotes(pullRequest);
 
   core.info(`Is prerelease? ${isPrerelease}`);
+  core.info(`Is draft? ${shouldGeneratePatchNotes}`);
   await client.rest.repos.createRelease({
     name: pullRequest.title,
     tag_name: tag,
     draft: shouldGeneratePatchNotes,
     body: pullRequest.body || "",
     prerelease: isPrerelease,
-    draft: false,
     target_commitish: pullRequest.merge_commit_sha,
     ...github.context.repo,
   });
