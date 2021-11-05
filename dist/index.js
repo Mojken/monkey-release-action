@@ -8568,9 +8568,12 @@ async function generatePatchNotes(pullRequest) {
       repo: github.context.repo.repo,
     });
 
+    core.info(latest_release);
+    core.info(JSON.stringify(latest_release));
+
     core.info(
       "Generating patch-notes relative to release " +
-        latest_release.tag_name +
+        latest_release.data.tag_name +
         ".."
     );
 
