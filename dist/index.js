@@ -8560,7 +8560,6 @@ async function setStatus(pullRequest, state, description) {
 
 async function generateReleaseNotes(pullRequest) {
   const tag = getTagName(pullRequest);
-  core.info("generating releasenotes");
 
   var previous_tag_name;
   try {
@@ -8569,15 +8568,15 @@ async function generateReleaseNotes(pullRequest) {
       repo: github.context.repo.repo,
     });
     previous_tag_name = latest_release.data.tag_name;
-  } catch (error) {
-    previous_tag_name = "";
-  }
-
-  try {
     core.info(
       "Generating release-notes relative to release " + previous_tag_name + ".."
     );
+  } catch (error) {
+    previous_tag_name = "";
+    core.info("Generating release-notes relative to start of repository..");
+  }
 
+  try {
     const response = await client.request(
       "POST /repos/{owner}/{repo}/releases/generate-notes",
       {
