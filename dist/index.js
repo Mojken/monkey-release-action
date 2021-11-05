@@ -8560,7 +8560,7 @@ async function setStatus(pullRequest, state, description) {
 
 async function generatePatchNotes(pullRequest) {
   const tag = getTagName(pullRequest);
-  core.log("generating patchnotes");
+  core.info("generating patchnotes");
 
   try {
     const latest_release = await client.rest.repos.getLatestRelease({
@@ -8568,7 +8568,7 @@ async function generatePatchNotes(pullRequest) {
       repo: github.context.repo.repo,
     });
 
-    core.log(
+    core.info(
       "Generating patch-notes relative to release " +
         latest_release.tag_name +
         ".."
