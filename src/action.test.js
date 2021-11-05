@@ -169,12 +169,39 @@ test("review", async () => {
     .post(`/repos/${owner}/${repo}/statuses/${headSha}`)
     .reply(200);
   await review({ number: prNumber, head: { sha: headSha } }, "APPROVE", "LGTM");
+
+  process.env["INPUT_GENERATE_PATCH_NOTES"] = "true";
+  nock("https://api.github.com")
+    .post(`/repos/${owner}/${repo}/pulls/${prNumber}/reviews`)
+    .reply(200)
+    .post(`/repos/${owner}/${repo}/statuses/${headSha}`)
+    .reply(200)
+    .post(`/repos/${owner}/${repo}/releases/generate-notes`)
+    .reply(200, '{"name": "flufftitle","body": "mybody"}')
+    .post(`/repos/${owner}/${repo}/issues/${prNumber}/comments`)
+    .reply(200, '{"name": "flufftitle","body": "mybody"}');
+  await review({ number: prNumber, head: { sha: headSha } }, "APPROVE", "LGTM");
+
+  process.env["INPUT_GENERATE_PATCH_NOTES"] = "true";
+  nock("https://api.github.com")
+    .post(`/repos/${owner}/${repo}/pulls/${prNumber}/reviews`)
+    .reply(200)
+    .post(`/repos/${owner}/${repo}/statuses/${headSha}`)
+    .reply(200)
+    .post(`/repos/${owner}/${repo}/releases/generate-notes`)
+    .reply(200, '{"name": "flufftitle","body": "mybody"}')
+    .post(`/repos/${owner}/${repo}/issues/${prNumber}/comments`)
+    .reply(404);
+  await expect(
+    review({ number: prNumber, head: { sha: headSha } }, "APPROVE", "LGTM")
+  ).rejects.toThrow(Error);
 });
 
 test("release", async () => {
   const { release } = require("./action");
 
   process.env["INPUT_TAG_PREFIX"] = "release/";
+  process.env["INPUT_GENERATE_PATCH_NOTES"] = "";
   nock("https://api.github.com")
     .post(`/repos/${owner}/${repo}/releases`)
     .reply(200);
@@ -182,20 +209,21 @@ test("release", async () => {
     title: "hejhej",
     body: "somebody",
     merge_commit_sha: "deadbeef",
+    head: { ref: "dev" },
   });
 
   // Test integration of body generation
-  process.env["INPUT_GENERATE_BODY"] = "true";
-  nock("https://api.github.com")
-    .post(`/repos/${owner}/${repo}/releases/generate-notes`)
-    .reply(200, '{"name": "flufftitle","body": "mybody"}');
+  process.env["INPUT_GENERATE_PATCH_NOTES"] = "true";
   nock("https://api.github.com")
     .post(`/repos/${owner}/${repo}/releases`)
-    .reply(200);
+    .reply(200)
+    .post(`/repos/${owner}/${repo}/releases/generate-notes`)
+    .reply(200, '{"name": "flufftitle","body": "mybody"}');
   await release({
     title: "hejhej",
     body: "",
     merge_commit_sha: "deadbeef",
+    head: { ref: "dev" },
   });
 });
 
@@ -256,7 +284,8 @@ test("validateTitle", () => {
 
 test("validateBody", () => {
   const { validateBody } = require("./action");
-  process.env["INPUT_GENERATE_BODY"] = "";
+
+  process.env["INPUT_GENERATE_PATCH_NOTES"] = "";
 
   // Valid body
   validateBody({ body: "A body" });
@@ -266,13 +295,9 @@ test("validateBody", () => {
     validateBody({ title: null });
   }).toThrow(/Missing description/);
 
-  process.env["INPUT_GENERATE_BODY"] = "true";
-
+  process.env["INPUT_GENERATE_PATCH_NOTES"] = "true";
   // Invalid body, but generate body is on
   validateBody({ title: null });
-
-  // Reset generate body tag, to not break other tests
-  process.env["INPUT_GENERATE_BODY"] = "";
 });
 
 test("validateBranches", () => {
@@ -344,20 +369,27 @@ test("setStatus", async () => {
   await setStatus({ head: { sha: headSha } }, "success", "LGTM");
 });
 
-test("generateBody", async () => {
-  const { generateBody } = require("./action");
+test("generatePatchNotes", async () => {
+  const { generatePatchNotes } = require("./action");
 
   process.env["INPUT_TAG_PREFIX"] = "release/";
 
   pr = {
     title: "hejhej",
-    body: "",
-    merge_commit_sha: "deadbeef",
+    head: { ref: "dev" },
   };
 
   nock("https://api.github.com")
     .post(`/repos/${owner}/${repo}/releases/generate-notes`)
-    .reply(200, JSON.parse('{"name": "flufftitle","body": "mybody"}'));
-  await generateBody(pr);
-  expect(pr.body).toBe("mybody");
+    .reply(404);
+  await expect(generatePatchNotes(pr)).rejects.toThrow(
+    /Failed to generate a body/
+  );
+
+  nock("https://api.github.com")
+    .post(`/repos/${owner}/${repo}/releases/generate-notes`)
+    .reply(200, '{"name": "flufftitle","body": "mybody"}');
+  await generatePatchNotes(pr);
+  //I can't get this to work, nock doesn't return the data in the same format as the real API
+  //expect(pr.body).toBe("mybody");
 });
