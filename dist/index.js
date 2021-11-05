@@ -8396,7 +8396,7 @@ function validateBody(pullRequest) {
   const { body } = pullRequest;
   if (
     !body &&
-    !JSON.parse(core.getInput("generate_patch_notes") || false) === true
+    !JSON.parse(core.getInput("generate_release_notes") || false) === true
   ) {
     throw new ValidationError("Missing description.");
   }
@@ -8519,8 +8519,8 @@ async function review(pullRequest, event, comment) {
   );
 
   // Generate body for review, if flag is set
-  if (JSON.parse(core.getInput("generate_patch_notes") || false) === true) {
-    await generatePatchNotes(pullRequest);
+  if (JSON.parse(core.getInput("generate_release_notes") || false) === true) {
+    await generateReleaseNotes(pullRequest);
     // Post the generated body as a comment
     try {
       await client.request(
@@ -8558,9 +8558,9 @@ async function setStatus(pullRequest, state, description) {
   });
 }
 
-async function generatePatchNotes(pullRequest) {
+async function generateReleaseNotes(pullRequest) {
   const tag = getTagName(pullRequest);
-  core.info("generating patchnotes");
+  core.info("generating releasenotes");
 
   try {
     const latest_release = await client.rest.repos.getLatestRelease({
@@ -8569,7 +8569,7 @@ async function generatePatchNotes(pullRequest) {
     });
 
     core.info(
-      "Generating patch-notes relative to release " +
+      "Generating release-notes relative to release " +
         latest_release.data.tag_name +
         ".."
     );
@@ -8598,16 +8598,16 @@ async function release(pullRequest) {
   const isPrerelease =
     JSON.parse(core.getInput("prerelease") || false) === true;
 
-  const shouldGeneratePatchNotes =
-    JSON.parse(core.getInput("generate_patch_notes") || false) === true;
-  if (shouldGeneratePatchNotes) await generatePatchNotes(pullRequest);
+  const shouldGenerateReleaseNotes =
+    JSON.parse(core.getInput("generate_release_notes") || false) === true;
+  if (shouldGenerateReleaseNotes) await generateReleaseNotes(pullRequest);
 
   core.info(`Is prerelease? ${isPrerelease}`);
-  core.info(`Is draft? ${shouldGeneratePatchNotes}`);
+  core.info(`Is draft? ${shouldGenerateReleaseNotes}`);
   await client.rest.repos.createRelease({
     name: pullRequest.title,
     tag_name: tag,
-    draft: shouldGeneratePatchNotes,
+    draft: shouldGenerateReleaseNotes,
     body: pullRequest.body || "",
     prerelease: isPrerelease,
     target_commitish: pullRequest.merge_commit_sha,
@@ -8637,7 +8637,7 @@ module.exports = {
   release,
   setStatus,
   ValidationError,
-  generatePatchNotes,
+  generateReleaseNotes,
 };
 
 
