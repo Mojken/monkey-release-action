@@ -408,7 +408,5 @@ test("generateReleaseNotes", async () => {
     .reply(200, '{"name": "flufftitle","body": "mybody"}')
     .get(`/repos/${owner}/${repo}/releases/latest`)
     .reply(404);
-  await expect(generateReleaseNotes(pr)).rejects.toThrow(
-    /Failed to generate a body/
-  );
+  await generateReleaseNotes(pr);
 });

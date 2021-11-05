@@ -284,16 +284,20 @@ async function generateReleaseNotes(pullRequest) {
   const tag = getTagName(pullRequest);
   core.info("generating releasenotes");
 
+  var previous_tag_name;
   try {
     const latest_release = await client.rest.repos.getLatestRelease({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
     });
+    previous_tag_name = latest_release.data.tag_name;
+  } catch (error) {
+    previous_tag_name = "";
+  }
 
+  try {
     core.info(
-      "Generating release-notes relative to release " +
-        latest_release.data.tag_name +
-        ".."
+      "Generating release-notes relative to release " + previous_tag_name + ".."
     );
 
     const response = await client.request(
@@ -303,7 +307,7 @@ async function generateReleaseNotes(pullRequest) {
         repo: github.context.repo.repo,
         tag_name: tag,
         target_commitish: pullRequest.head.ref,
-        previous_tag_name: latest_release.data.tag_name,
+        previous_tag_name: previous_tag_name,
       }
     );
 
