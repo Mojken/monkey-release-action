@@ -60,7 +60,7 @@ async function validate(pullRequest) {
   }
   // Generate body for review
   // TODO this is mostly temporary
-  generateBody(pullRequest);
+  await generateBody(pullRequest);
   // Approve Release
   await review(
     pullRequest,
@@ -116,7 +116,7 @@ function validateTitle(pullRequest) {
 }
 
 function validateBody(pullRequest) {
-  core.info("Validating body...");
+  core.info("Validating body..");
   const { body } = pullRequest;
   if (!body && !JSON.parse(core.getInput("generate_body") || false) === true) {
     throw new ValidationError("Missing description.");
@@ -261,19 +261,21 @@ async function setStatus(pullRequest, state, description) {
 async function generateBody(pullRequest) {
   const tag = getTagName(pullRequest);
 
-  const { data } = await client.request(
-    "POST /repos/{owner}/{repo}/releases/generate-notes",
-    {
-      owner: github.context.repo.owner,
-      repo: github.context.repo.repo,
-      tag_name: tag,
-      target_commitish: pullRequest.merge_commit_sha,
-      ...github.context.repo,
-    }
-  );
-
-  core.info(JSON.stringify(data));
-  pullRequest.body = JSON.parse(data)["body"];
+  try {
+    const { data } = await client.request(
+      "POST /repos/{owner}/{repo}/releases/generate-notes",
+      {
+        owner: github.context.repo.owner,
+        repo: github.context.repo.repo,
+        tag_name: tag,
+        target_commitish: "HEAD", //TODO might be unsafe, mostly for testing
+      }
+    );
+    pullRequest.body = data.body;
+  } catch (error) {
+    core.info("Failed to generate a body: " + error);
+    pullRequest.body += "\nFailed to generate a body (" + error + ")";
+  }
 }
 
 async function release(pullRequest) {
@@ -282,8 +284,9 @@ async function release(pullRequest) {
   const isPrerelease =
     JSON.parse(core.getInput("prerelease") || false) === true;
 
-  if (JSON.parse(core.getInput("generate_body") || false) === true)
-    generateBody(pullRequest);
+  const shouldGenerateBody =
+    JSON.parse(core.getInput("generate_body") || false) === true;
+  if (shouldGenerateBody) await generateBody(pullRequest);
 
   core.info(`Is prerelease? ${isPrerelease}`);
   await client.rest.repos.createRelease({
