@@ -178,7 +178,7 @@ test("review", async () => {
     .reply(200)
     .post(`/repos/${owner}/${repo}/releases/generate-notes`)
     .reply(200, '{"name": "flufftitle","body": "mybody"}')
-    .post(`/repos/${owner}/${repo}/issues/${prNumber}/comments`)
+    .post(`/repos/${owner}/${repo}/issues/${prNumber}`)
     .reply(200, '{"name": "flufftitle","body": "mybody"}')
     .get(`/repos/${owner}/${repo}/releases/latest`)
     .reply(200, '{"tag_name": "last-tag"}');
@@ -192,7 +192,7 @@ test("review", async () => {
     .reply(200)
     .post(`/repos/${owner}/${repo}/releases/generate-notes`)
     .reply(200, '{"name": "flufftitle","body": "mybody"}')
-    .post(`/repos/${owner}/${repo}/issues/${prNumber}/comments`)
+    .post(`/repos/${owner}/${repo}/issues/${prNumber}`)
     .reply(404)
     .get(`/repos/${owner}/${repo}/releases/latest`)
     .reply(200, '{"tag_name": "last-tag"}');

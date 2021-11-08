@@ -38,6 +38,10 @@ inputs:
     description: 'Creates a prerelease instead of release'
     required: false
     default: false
+  draft:
+    description: 'Creates a draft relase'
+    required: false
+    default: false
   validate:
     description: 'Validate title and description of pull request'
     required: false
@@ -54,6 +58,7 @@ inputs:
     default: 'Valid release 🍌'
   generate_release_notes:
     description: 'Generate release notes automatically'
+    required: false
     default: false
 outputs:
   release:
