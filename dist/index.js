@@ -8396,7 +8396,7 @@ function validateBody(pullRequest) {
   const { body } = pullRequest;
   if (
     !body &&
-    !JSON.parse(core.getInput("generate_release_notes") || false) === true
+    JSON.parse(core.getInput("generate_release_notes") || false) === false
   ) {
     throw new ValidationError("Missing description.");
   }
@@ -8520,18 +8520,18 @@ async function review(pullRequest, event, comment) {
 
   // Generate body for review, if flag is set
   if (JSON.parse(core.getInput("generate_release_notes") || false) === true) {
-    await generateReleaseNotes(pullRequest);
+    body = await generateReleaseNotes(pullRequest);
+    // TODO prevent this from spamming comments
     // Post the generated body as a comment
+    // Update the PR body to be the patch notes
+    core.debug("Trying to update body");
     try {
-      await client.request(
-        "POST /repos/{owner}/{repo}/issues/{issue_number}/comments",
-        {
-          owner: github.context.repo.owner,
-          repo: github.context.repo.repo,
-          issue_number: pullRequest.number,
-          body: pullRequest.body,
-        }
-      );
+      await client.request("POST /repos/{owner}/{repo}/issues/{issue_number}", {
+        owner: github.context.repo.owner,
+        repo: github.context.repo.repo,
+        issue_number: pullRequest.number,
+        body: body,
+      });
     } catch (error) {
       //Catching and re-throwing because awaits are finicky
       throw Error(error);
@@ -8563,7 +8563,7 @@ async function generateReleaseNotes(pullRequest) {
 
   var previous_tag_name;
   try {
-    const latest_release = await client.rest.repos.getLatestRelease({
+    const latestRelease = await client.rest.repos.getLatestRelease({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
     });
@@ -8588,9 +8588,8 @@ async function generateReleaseNotes(pullRequest) {
       }
     );
 
-    pullRequest.body = response.data.body;
+    return response.data.body;
   } catch (error) {
-    pullRequest.body += "\nFailed to generate a body (" + error + ")";
     throw Error("Failed to generate a body: " + error);
   }
 }
@@ -8600,18 +8599,23 @@ async function release(pullRequest) {
   const tag = getTagName(pullRequest);
   const isPrerelease =
     JSON.parse(core.getInput("prerelease") || false) === true;
+  const isDraft = JSON.parse(core.getInput("draft") || false) === true;
 
   const shouldGenerateReleaseNotes =
     JSON.parse(core.getInput("generate_release_notes") || false) === true;
-  if (shouldGenerateReleaseNotes) await generateReleaseNotes(pullRequest);
+
+  body = pullRequest.body;
+  if (shouldGenerateReleaseNotes) {
+    body = await generateReleaseNotes(pullRequest);
+  }
 
   core.info(`Is prerelease? ${isPrerelease}`);
-  core.info(`Is draft? ${shouldGenerateReleaseNotes}`);
+  core.info(`Is draft? ${isDraft}`);
   await client.rest.repos.createRelease({
     name: pullRequest.title,
     tag_name: tag,
-    draft: shouldGenerateReleaseNotes,
-    body: pullRequest.body || "",
+    draft: isDraft,
+    body: body || "",
     prerelease: isPrerelease,
     target_commitish: pullRequest.merge_commit_sha,
     ...github.context.repo,

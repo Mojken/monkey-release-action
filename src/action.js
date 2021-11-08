@@ -246,6 +246,7 @@ async function review(pullRequest, event, comment) {
     // TODO prevent this from spamming comments
     // Post the generated body as a comment
     // Update the PR body to be the patch notes
+    core.debug("Trying to update body");
     try {
       await client.request("POST /repos/{owner}/{repo}/issues/{issue_number}", {
         owner: github.context.repo.owner,
