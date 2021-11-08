@@ -118,7 +118,7 @@ function validateBody(pullRequest) {
   const { body } = pullRequest;
   if (
     !body &&
-    !JSON.parse(core.getInput("generate_release_notes") || false) === true
+    JSON.parse(core.getInput("generate_release_notes") || false) === false
   ) {
     throw new ValidationError("Missing description.");
   }
@@ -285,7 +285,7 @@ async function generateReleaseNotes(pullRequest) {
 
   var previous_tag_name;
   try {
-    const latest_release = await client.rest.repos.getLatestRelease({
+    const latestRelease = await client.rest.repos.getLatestRelease({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
     });

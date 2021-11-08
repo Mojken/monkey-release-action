@@ -53,7 +53,7 @@ inputs:
     description: 'Message to comment with on valid release PRs.'
     default: 'Valid release 🍌'
   generate_release_notes:
-    description: 'Use githubs native release note generator.'
+    description: 'Generate release notes automatically'
     default: false
 outputs:
   release:
