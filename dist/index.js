@@ -8573,7 +8573,6 @@ async function generateReleaseNotes(pullRequest) {
     });
 
     // Update the PR body to be the patch notes
-    //await client.request("POST /repos/{owner}/{repo}/issues/{issue_number}", {
     await client.rest.issues.update({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
