@@ -20,9 +20,10 @@ async function action() {
 
     // If the release notes should have changed, generate new ones
     if (
-      action === "edited" &&
-      JSON.parse(core.getInput("generate_release_notes") || false) === true &&
-      github.context.payload.changes.body.from != pullRequest.body
+      action === "opened" ||
+      (action === "edited" &&
+        JSON.parse(core.getInput("generate_release_notes") || false) === true &&
+        github.context.payload.changes.body.from != pullRequest.body)
     )
       await generateReleaseNotes(pullRequest);
 
