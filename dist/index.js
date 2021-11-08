@@ -8580,6 +8580,9 @@ async function generateReleaseNotes(pullRequest) {
       issue_number: pullRequest.number,
       body: response.data.body,
     });
+
+    //pullRequest now holds stale data, updating it
+    pullRequest.body = response.data.body;
   } catch (error) {
     throw Error("Failed to generate a body: " + error);
   }
