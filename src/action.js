@@ -17,6 +17,15 @@ async function action() {
   if (validateActions.includes(action)) {
     // Run validation for accepted actions
     core.info(`Validating pull request for action ${action}.`);
+
+    // If the release notes should have changed, generate new ones
+    if (
+      action === "edited" &&
+      JSON.parse(core.getInput("generate_release_notes") || false) === true &&
+      github.context.payload.changes.body.from != pullRequest.body
+    )
+      await generateReleaseNotes(pullRequest);
+
     await validate(pullRequest);
   } else if (action === "closed" && pullRequest.merged) {
     // Previously validated PR was merged so create release
@@ -116,10 +125,7 @@ function validateTitle(pullRequest) {
 function validateBody(pullRequest) {
   core.info("Validating body..");
   const { body } = pullRequest;
-  if (
-    !body &&
-    JSON.parse(core.getInput("generate_release_notes") || false) === false
-  ) {
+  if (!body) {
     throw new ValidationError("Missing description.");
   }
 }
@@ -239,26 +245,6 @@ async function review(pullRequest, event, comment) {
     state ? STATUS_SUCCESS : STATUS_FAILURE,
     state ? DESCRIPTION_SUCCESS : DESCRIPTION_FAILURE
   );
-
-  // Generate body for review, if flag is set
-  if (JSON.parse(core.getInput("generate_release_notes") || false) === true) {
-    body = await generateReleaseNotes(pullRequest);
-    // TODO prevent this from spamming comments
-    // Post the generated body as a comment
-    // Update the PR body to be the patch notes
-    core.debug("Trying to update body");
-    try {
-      await client.request("POST /repos/{owner}/{repo}/issues/{issue_number}", {
-        owner: github.context.repo.owner,
-        repo: github.context.repo.repo,
-        issue_number: pullRequest.number,
-        body: body,
-      });
-    } catch (error) {
-      //Catching and re-throwing because awaits are finicky
-      throw Error(error);
-    }
-  }
 }
 
 async function setStatus(pullRequest, state, description) {
@@ -289,7 +275,7 @@ async function generateReleaseNotes(pullRequest) {
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
     });
-    previous_tag_name = latest_release.data.tag_name;
+    previous_tag_name = latestRelease.data.tag_name;
     core.info(
       "Generating release-notes relative to release " + previous_tag_name + ".."
     );
@@ -299,18 +285,22 @@ async function generateReleaseNotes(pullRequest) {
   }
 
   try {
-    const response = await client.request(
-      "POST /repos/{owner}/{repo}/releases/generate-notes",
-      {
-        owner: github.context.repo.owner,
-        repo: github.context.repo.repo,
-        tag_name: tag,
-        target_commitish: pullRequest.head.ref,
-        previous_tag_name: previous_tag_name,
-      }
-    );
+    const response = await client.rest.repos.generateReleaseNotes({
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      tag_name: tag,
+      target_commitish: pullRequest.head.ref,
+      previous_tag_name: previous_tag_name,
+    });
 
-    return response.data.body;
+    // Update the PR body to be the patch notes
+    //await client.request("POST /repos/{owner}/{repo}/issues/{issue_number}", {
+    await client.rest.issues.update({
+      owner: github.context.repo.owner,
+      repo: github.context.repo.repo,
+      issue_number: pullRequest.number,
+      body: response.data.body,
+    });
   } catch (error) {
     throw Error("Failed to generate a body: " + error);
   }
@@ -323,21 +313,13 @@ async function release(pullRequest) {
     JSON.parse(core.getInput("prerelease") || false) === true;
   const isDraft = JSON.parse(core.getInput("draft") || false) === true;
 
-  const shouldGenerateReleaseNotes =
-    JSON.parse(core.getInput("generate_release_notes") || false) === true;
-
-  body = pullRequest.body;
-  if (shouldGenerateReleaseNotes) {
-    body = await generateReleaseNotes(pullRequest);
-  }
-
   core.info(`Is prerelease? ${isPrerelease}`);
   core.info(`Is draft? ${isDraft}`);
   await client.rest.repos.createRelease({
     name: pullRequest.title,
     tag_name: tag,
     draft: isDraft,
-    body: body || "",
+    body: pullRequest.body || "",
     prerelease: isPrerelease,
     target_commitish: pullRequest.merge_commit_sha,
     ...github.context.repo,

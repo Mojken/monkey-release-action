@@ -68,6 +68,10 @@ The label to add to the release PR. Set to an empty string to disable. Defaults 
 
 Creates a prerelease instead. Defaults to `false`.
 
+### `draft`
+
+Creates a draft release instead. Defaults to `false`.
+
 ### `validate`
 
 Validate name and description of PR according to provided input. Defaults to `true`.
@@ -91,7 +95,7 @@ cheerfulness or reminders. Defaults to `Valid release 🍌`.
 ## `generate_release_notes`
 
 If `true`, will use Github's release note generator instead of the description of the pull-request for the body of the release.
-Generates draft releases instead, to allow for revision before publishing. Also posts the patch notes as a comment of the PR after validation.
+This will change the body of the pull-request every time is it updated, except on edits to the body, meaning you can revise the release notes before merging, but any other change will overwrite your edits. Creating a draft is recommended.
 
 ## Outputs
 
