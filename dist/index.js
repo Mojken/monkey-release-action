@@ -8406,7 +8406,7 @@ function validateBody(pullRequest) {
   const { body } = pullRequest;
   if (
     !body &&
-    !JSON.parse(core.getInput("generate_patch_notes") || false) === true
+    !JSON.parse(core.getInput("generate_release_notes") || false) === true
   ) {
     throw new ValidationError("Missing description.");
   }
@@ -8529,8 +8529,8 @@ async function review(pullRequest, event, comment) {
   );
 
   // Generate body for review, if flag is set
-  if (JSON.parse(core.getInput("generate_patch_notes") || false) === true) {
-    await generatePatchNotes(pullRequest);
+  if (JSON.parse(core.getInput("generate_release_notes") || false) === true) {
+    await generateReleaseNotes(pullRequest);
     // Post the generated body as a comment
     try {
       await client.request(
@@ -8568,7 +8568,7 @@ async function setStatus(pullRequest, state, description) {
   });
 }
 
-async function generatePatchNotes(pullRequest) {
+async function generateReleaseNotes(pullRequest) {
   const tag = getTagName(pullRequest);
 
   var previous_tag_name;
@@ -8595,16 +8595,13 @@ async function generatePatchNotes(pullRequest) {
       previous_tag_name: previous_tag_name,
     });
 
-    // Update the PR body to be the patch notes
-    await client.rest.issues.update({
+    // Update the PR body to be the release notes
+    await client.rest.issues.createComment({
       owner: github.context.repo.owner,
       repo: github.context.repo.repo,
       issue_number: pullRequest.number,
       body: response.data.body,
     });
-
-    //pullRequest now holds stale data, updating it
-    pullRequest.body = response.data.body;
   } catch (error) {
     throw Error("Failed to generate a body: " + error);
   }
@@ -8652,7 +8649,7 @@ module.exports = {
   release,
   setStatus,
   ValidationError,
-  generatePatchNotes,
+  generateReleaseNotes,
 };
 
 

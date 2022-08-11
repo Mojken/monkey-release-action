@@ -170,7 +170,7 @@ test("review", async () => {
     .reply(200);
   await review({ number: prNumber, head: { sha: headSha } }, "APPROVE", "LGTM");
 
-  process.env["INPUT_GENERATE_PATCH_NOTES"] = "true";
+  process.env["INPUT_GENERATE_RELEASE_NOTES"] = "true";
   nock("https://api.github.com")
     .post(`/repos/${owner}/${repo}/pulls/${prNumber}/reviews`)
     .reply(200)
@@ -184,7 +184,7 @@ test("review", async () => {
     .reply(200, '{"tag_name": "last-tag"}');
   await review({ number: prNumber, head: { sha: headSha } }, "APPROVE", "LGTM");
 
-  process.env["INPUT_GENERATE_PATCH_NOTES"] = "true";
+  process.env["INPUT_GENERATE_RELEASE_NOTES"] = "true";
   nock("https://api.github.com")
     .post(`/repos/${owner}/${repo}/pulls/${prNumber}/reviews`)
     .reply(200)
@@ -205,7 +205,7 @@ test("release", async () => {
   const { release } = require("./action");
 
   process.env["INPUT_TAG_PREFIX"] = "release/";
-  process.env["INPUT_GENERATE_PATCH_NOTES"] = "";
+  process.env["INPUT_GENERATE_RELEASE_NOTES"] = "";
   nock("https://api.github.com")
     .post(`/repos/${owner}/${repo}/releases`)
     .reply(200);
@@ -217,7 +217,7 @@ test("release", async () => {
   });
 
   // Test integration of body generation
-  process.env["INPUT_GENERATE_PATCH_NOTES"] = "true";
+  process.env["INPUT_GENERATE_RELEASE_NOTES"] = "true";
   nock("https://api.github.com")
     .post(`/repos/${owner}/${repo}/releases`)
     .reply(200)
@@ -291,7 +291,7 @@ test("validateTitle", () => {
 test("validateBody", () => {
   const { validateBody } = require("./action");
 
-  process.env["INPUT_GENERATE_PATCH_NOTES"] = "";
+  process.env["INPUT_GENERATE_RELEASE_NOTES"] = "";
 
   // Valid body
   validateBody({ body: "A body" });
@@ -301,7 +301,7 @@ test("validateBody", () => {
     validateBody({ title: null });
   }).toThrow(/Missing description/);
 
-  process.env["INPUT_GENERATE_PATCH_NOTES"] = "true";
+  process.env["INPUT_GENERATE_RELEASE_NOTES"] = "true";
   // Invalid body, but generate body is on
   validateBody({ title: null });
 });
@@ -375,8 +375,8 @@ test("setStatus", async () => {
   await setStatus({ head: { sha: headSha } }, "success", "LGTM");
 });
 
-test("generatePatchNotes", async () => {
-  const { generatePatchNotes } = require("./action");
+test("generateReleaseNotes", async () => {
+  const { generateReleaseNotes } = require("./action");
 
   process.env["INPUT_TAG_PREFIX"] = "release/";
 
@@ -400,8 +400,8 @@ test("generatePatchNotes", async () => {
     .reply(200, { name: "flufftitle", body: "mybody" })
     .get(`/repos/${owner}/${repo}/releases/latest`)
     .reply(200, { tag_name: "last-tag" })
-    .patch(`/repos/${owner}/${repo}/issues/${pr.number}`, { body: "mybody" })
-    .reply(200);
+    .post(`/repos/${owner}/${repo}/issues/${pr.number}/comments`)
+    .reply(201, '{"body": "mybody"}')
   await generateReleaseNotes(pr);
 
   nock("https://api.github.com")
@@ -409,7 +409,7 @@ test("generatePatchNotes", async () => {
     .reply(200, { name: "flufftitle", body: "mybody" })
     .get(`/repos/${owner}/${repo}/releases/latest`)
     .reply(404)
-    .patch(`/repos/${owner}/${repo}/issues/${pr.number}`, { body: "mybody" })
-    .reply(200);
+    .post(`/repos/${owner}/${repo}/issues/${pr.number}/comments`)
+    .reply(201, '{"body": "mybody"}')
   await generateReleaseNotes(pr);
 });
