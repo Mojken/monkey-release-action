@@ -8457,7 +8457,8 @@ const TRANSFORMERS = {
       .trim()
       .replace(/\s+/g, "-")
       .toLowerCase()
-      .replace(/[^a-z0-9-_]/g, "");
+      .replace(/[^a-z0-9_]/g, "")
+      .replace(/-+$/g, "");
     return `#${number}-${name}`;
   },
   title: ({ title }) => title,
